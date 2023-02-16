@@ -6,3 +6,8 @@
 //
 
 #include <stdio.h>
+
+int main(){
+    printf("Hello from worker\n");
+    return 0;
+}
