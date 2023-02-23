@@ -16,7 +16,8 @@
 typedef  struct {
     int seconds;
     int nanoseconds;
-}Colck;
+}Clock
+
 
 int main(int argc, char* argv[]){
   
@@ -26,7 +27,7 @@ int main(int argc, char* argv[]){
 
     /* get opt() use to pass the command line options
      loops runs untill getopt retutns -1
-     dwitch statement value of options to determine options passed
+     switch statement value of options to determine options passed
      if unknown option passed exit form the program*/
 
     while((option = getopt(argc, argv, "hn:s:t:")) != -1){
@@ -61,6 +62,46 @@ int main(int argc, char* argv[]){
     }
     
     
+    
+    
+    
+    // Create shared memory segment for the simaulaed system clock
+    
+    int shm_id = shmget(SHM_KEY, sizeof(Clock),0666);
+    if (shm_id == -1) {
+            perror("shmget");
+            exit(EXIT_FAILURE);
+        }
+    
+    //Attach shared memory segment to process address
+    Clock *clock = (Clock *) shmat(shm_id, NULL, 0);
+        if (clock == (Clock *) -1) {
+            perror("shmat");
+            exit(EXIT_FAILURE);
+        }
+    
+    // initialize the simulated system clock
+    clock->seconds = 0;
+    clock->nanoseconds =0;
+    
+    
+    
+    
+    //Detach shared memory segment from process address space
+    if (shmdt(clock) == -1) {
+            perror("shmdt");
+            exit(EXIT_FAILURE);
+        }
+
+    // Destroy shared memory segment
+        if (shmctl(shm_id, IPC_RMID, NULL) == -1) {
+            perror("shmctl");
+            exit(EXIT_FAILURE);
+        }
+    
+    
+    
+    
     // random number generator for seconds and nanseconds
     srand(time(0));
    
@@ -68,6 +109,7 @@ int main(int argc, char* argv[]){
     int seconds = rand()%(t-1) + 1;
     
     printf("System clock is now Seconds: %d and nanoseconds : %d", seconds, nanoseconds);
+    
     
     return 0;
 }
