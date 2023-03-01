@@ -18,6 +18,9 @@
 
 
 int main(int argc, char* argv[]){
+    
+    printf("Now at worker\n");
+    
     if (argc != 3){
         printf("Usage: %s seconds nanoseconds \n ", argv[0]);
         exit(EXIT_FAILURE);
@@ -26,6 +29,7 @@ int main(int argc, char* argv[]){
     // parsing command line arguments
     long seconds = atol(argv[1]);
     long nanoseconds = atol(argv[2]);
+    printf("Seconds :%ld, Nanoseconds: %ld\n",seconds, nanoseconds);
     
     // attach to shared memmory
     int share_memid = shmget(SHM_KEY, sizeof(struct timespec), 0666|IPC_CREAT);
@@ -42,8 +46,10 @@ int main(int argc, char* argv[]){
     
     //calculate target termination time
     struct timespec term_time;
+    
     term_time.tv_sec = sys_clock->tv_sec + seconds;
     term_time.tv_nsec = sys_clock->tv_nsec + nanoseconds;
+    
     if (term_time.tv_nsec >= 1000000000) {
         term_time.tv_sec++;
         term_time.tv_nsec -= 1000000000;
