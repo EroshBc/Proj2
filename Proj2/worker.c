@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
     long nanoseconds = atol(argv[2]);
     
     // attach to shared memmory
-    int share_memid = shmget(SHM_KEY, sizeof(struct timespec), 0666);
+    int share_memid = shmget(SHM_KEY, sizeof(struct timespec), 0666|IPC_CREAT);
     if(share_memid == -1){
         perror("shmget");
         exit(EXIT_FAILURE);
@@ -39,6 +39,7 @@ int main(int argc, char* argv[]){
         exit(EXIT_FAILURE);
         
     }
+    
     //calculate target termination time
     struct timespec term_time;
     term_time.tv_sec = sys_clock->tv_sec + seconds;

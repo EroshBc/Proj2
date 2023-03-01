@@ -16,7 +16,7 @@
 typedef  struct {
     int seconds;
     int nanoseconds;
-}Clock
+}Clock;
 
 
 int main(int argc, char* argv[]){
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]){
     
     // Create shared memory segment for the simaulaed system clock
     
-    int shm_id = shmget(SHM_KEY, sizeof(Clock),0666);
+    int shm_id = shmget(SHM_KEY, sizeof(Clock),0666|IPC_CREAT);
     if (shm_id == -1) {
             perror("shmget");
             exit(EXIT_FAILURE);
@@ -79,12 +79,31 @@ int main(int argc, char* argv[]){
             perror("shmat");
             exit(EXIT_FAILURE);
         }
+    // random number generator for seconds and nanseconds
+    //initialize system clock
+    srand(time(0));
+   
+     clock->nanoseconds = rand()% (1000000000) + 1;
+     clock->seconds = rand()%(t-1) + 1;
     
-    // initialize the simulated system clock
-    clock->seconds = 0;
-    clock->nanoseconds =0;
+
     
+    // fork a child process
+    pid_t pid = fork();
+    if(pid == -1){
+        perror("fork");
+        exit(EXIT_FAILURE);
+        
+    }else if(pid == 0){
+        //child process
+        printf("Child process: seconds = %d, nanoseconds = %d\n", clock->seconds, clock->nanoseconds);
     
+        exit(EXIT_SUCCESS);
+    } else {
+        // Parent processand
+        wait(NULL);
+        printf("Parent process: simulated system clock after child process: seconds = %d, nanoseconds = %d\n", clock->seconds, clock->nanoseconds);
+        }
     
     
     //Detach shared memory segment from process address space
@@ -102,13 +121,7 @@ int main(int argc, char* argv[]){
     
     
     
-    // random number generator for seconds and nanseconds
-    srand(time(0));
-   
-    int nanoseconds = rand()% (1000000000) + 1;
-    int seconds = rand()%(t-1) + 1;
     
-    printf("System clock is now Seconds: %d and nanoseconds : %d", seconds, nanoseconds);
     
     
     return 0;
