@@ -101,7 +101,11 @@ int main(int argc, char* argv[]){
     }else if(pid == 0){
         //child process
         printf("Child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
-        execl("./worker", "worker",clock->seconds,clock->nanoseconds, NULL);
+        char sec_str[10];
+        char nansec_str[10];
+        sprintf(sec_str, "%ld", clock->seconds);
+        sprintf(nansec_str, "%ld", clock->nanoseconds);
+        execl("./worker", "worker",sec_str,nansec_str,NULL);
         exit(EXIT_SUCCESS);
     } else {
         // Parent processand
