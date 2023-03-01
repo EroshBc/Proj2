@@ -12,8 +12,10 @@
 #include <getopt.h>
 
 #define SHM_KEY 18181
-
-
+typedef struct{
+    int seconds;
+    int nanoseconds;
+}Clock;
 
 struct PCB {
     int occupied; // either true or false
@@ -50,6 +52,7 @@ void updateProcessTable(pid_t pid) {
     }
 }
 
+
 // Function to print the process table
 void printProcessTable() {
     printf("Process Table:\n");
@@ -70,7 +73,7 @@ int main(int argc, char* argv[]){
     int n=1, s = 0, t=7;
     int children = 0;
     
-    struct Clock c = {0,0};
+    
     int increment = 1000000; // increment clock by 1 millisecond
     
 
@@ -122,11 +125,9 @@ int main(int argc, char* argv[]){
     
     
     
-    
-    
     // Create shared memory segment for the simulated system clock
     
-    int shm_id = shmget(SHM_KEY, sizeof(clock),0666|IPC_CREAT);
+    int shm_id = shmget(SHM_KEY, sizeof(Clock),0666|IPC_CREAT);
     if (shm_id == -1) {
             perror("shmget");
             exit(EXIT_FAILURE);
@@ -134,8 +135,8 @@ int main(int argc, char* argv[]){
     
     
     //Attach shared memory segment to process address
-    struct Clock *clock = (clock *) shmat(shm_id, NULL, 0);
-    if (clock == (clock *) -1) {
+    Clock *clock = (Clock *) shmat(shm_id, NULL, 0);
+    if (clock == (Clock *) -1) {
             perror("shmat");
             exit(EXIT_FAILURE);
         }
@@ -162,7 +163,7 @@ int main(int argc, char* argv[]){
         
     }else if(pid == 0){
         //child process
-        printf("Child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
+        printf("Child process: seconds = %d, nanoseconds = %d\n", clock->seconds, clock->nanoseconds);
         
         char sec_str[10];
         char nansec_str[10];
@@ -175,16 +176,16 @@ int main(int argc, char* argv[]){
     } else {
         // Parent processand
         wait(NULL);
-        printf("Parent process: simulated system clock after child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
+        printf("Parent process: simulated system clock after child process: seconds = %d, nanoseconds = %d\n", clock->seconds, clock->nanoseconds);
         addToProcessTable(pid, clock->seconds, clock->nanoseconds);
         }
     
     }
     
-    pid_t pid = waitpid(-1, &status, WNOHANG);
-    if (pid > 0) {
-        updateProcessTable(pid);
-    }
+//    pid_t pid = waitpid(-1, &status, WNOHANG);
+//    if (pid > 0) {
+//        updateProcessTable(pid);
+//    }
     
     //Detach shared memory segment from process address space
     if (shmdt(clock) == -1) {
