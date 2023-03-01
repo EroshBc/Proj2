@@ -12,6 +12,19 @@
 #include <getopt.h>
 
 #define SHM_KEY 18181
+#define NUM_PROCESS = 20
+
+
+struct PCB {
+    int occupied; // either true or false
+    pid_t pid; // process id of this child
+    int startSeconds; // time when it was forked
+    int startNano; // time when it was forked
+};
+
+
+
+
 
 typedef  struct {
     long  seconds;
@@ -19,9 +32,13 @@ typedef  struct {
 }Clock;
 
 
+
+
 int main(int argc, char* argv[]){
   
-    int n=0, s = 0, t=7;
+    int n=1, s = 0, t=7;
+    int children = 0;
+    
 
     int option=0;
 
@@ -89,8 +106,11 @@ int main(int argc, char* argv[]){
      clock->nanoseconds = rand()% (1000000000) + 1;
      clock->seconds = rand()%(t-1) + 1;
     
-
-    
+   
+    while (children < n) {
+        if (children >= s) {
+            wait(NULL);
+        }
     // fork a child process
     pid_t pid = fork();
     
@@ -101,11 +121,14 @@ int main(int argc, char* argv[]){
     }else if(pid == 0){
         //child process
         printf("Child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
+        
         char sec_str[10];
         char nansec_str[10];
         sprintf(sec_str, "%ld", clock->seconds);
         sprintf(nansec_str, "%ld", clock->nanoseconds);
+        
         execl("./worker", "worker",sec_str,nansec_str,NULL);
+        
         exit(EXIT_SUCCESS);
     } else {
         // Parent processand
@@ -113,6 +136,7 @@ int main(int argc, char* argv[]){
         printf("Parent process: simulated system clock after child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
         }
     
+    }
     
     //Detach shared memory segment from process address space
     if (shmdt(clock) == -1) {
