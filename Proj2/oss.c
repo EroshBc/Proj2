@@ -12,7 +12,7 @@
 #include <getopt.h>
 
 #define SHM_KEY 18181
-#define NUM_PROCESS = 20
+
 
 
 struct PCB {
@@ -22,14 +22,45 @@ struct PCB {
     int startNano; // time when it was forked
 };
 
+struct PCB processTable[20];
 
+// Function to add a new process to the process table
+void addToProcessTable(pid_t pid, int startSeconds, int startNano) {
+    for (int i = 0; i < 20; i++) {
+        if (!processTable[i].occupied) {
+            processTable[i].occupied = 1;
+            processTable[i].pid = pid;
+            processTable[i].startSeconds = startSeconds;
+            processTable[i].startNano = startNano;
+            break;
+        }
+    }
+}
 
+// Function to update the process table when a process terminates
+void updateProcessTable(pid_t pid) {
+    for (int i = 0; i < 20; i++) {
+        if (processTable[i].occupied && processTable[i].pid == pid) {
+            processTable[i].occupied = 0;
+            processTable[i].pid = 0;
+            processTable[i].startSeconds = 0;
+            processTable[i].startNano = 0;
+            break;
+        }
+    }
+}
 
+// Function to print the process table
+void printProcessTable() {
+    printf("Process Table:\n");
+    printf("Entry\tOccupied\tPID\tStartS\tStartN\n");
+    for (int i = 0; i < 20; i++) {
+        printf("%d\t%d\t\t%d\t%d\t%d\n", i, processTable[i].occupied,
+               processTable[i].pid, processTable[i].startSeconds, processTable[i].startNano);
+    }
+    printf("\n");
+}
 
-typedef  struct {
-    long  seconds;
-    long nanoseconds;
-}Clock;
 
 
 
@@ -39,6 +70,17 @@ int main(int argc, char* argv[]){
     int n=1, s = 0, t=7;
     int children = 0;
     
+    struct Clock c = {0,0};
+    int increment = 1000000; // increment clock by 1 millisecond
+    
+
+    // Initialize process table
+    for (int i = 0; i < 20; i++) {
+        processTable[i].occupied = 0;
+        processTable[i].pid = 0;
+        processTable[i].startSeconds = 0;
+        processTable[i].startNano = 0;
+    }
 
     int option=0;
 
@@ -84,7 +126,7 @@ int main(int argc, char* argv[]){
     
     // Create shared memory segment for the simulated system clock
     
-    int shm_id = shmget(SHM_KEY, sizeof(Clock),0666|IPC_CREAT);
+    int shm_id = shmget(SHM_KEY, sizeof(clock),0666|IPC_CREAT);
     if (shm_id == -1) {
             perror("shmget");
             exit(EXIT_FAILURE);
@@ -92,8 +134,8 @@ int main(int argc, char* argv[]){
     
     
     //Attach shared memory segment to process address
-    Clock *clock = (Clock *) shmat(shm_id, NULL, 0);
-        if (clock == (Clock *) -1) {
+    struct Clock *clock = (clock *) shmat(shm_id, NULL, 0);
+    if (clock == (clock *) -1) {
             perror("shmat");
             exit(EXIT_FAILURE);
         }
@@ -124,8 +166,8 @@ int main(int argc, char* argv[]){
         
         char sec_str[10];
         char nansec_str[10];
-        sprintf(sec_str, "%ld", clock->seconds);
-        sprintf(nansec_str, "%ld", clock->nanoseconds);
+        sprintf(sec_str, "%d", clock->seconds);
+        sprintf(nansec_str, "%d", clock->nanoseconds);
         
         execl("./worker", "worker",sec_str,nansec_str,NULL);
         
@@ -134,8 +176,14 @@ int main(int argc, char* argv[]){
         // Parent processand
         wait(NULL);
         printf("Parent process: simulated system clock after child process: seconds = %ld, nanoseconds = %ld\n", clock->seconds, clock->nanoseconds);
+        addToProcessTable(pid, clock->seconds, clock->nanoseconds);
         }
     
+    }
+    
+    pid_t pid = waitpid(-1, &status, WNOHANG);
+    if (pid > 0) {
+        updateProcessTable(pid);
     }
     
     //Detach shared memory segment from process address space
