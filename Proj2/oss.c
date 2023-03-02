@@ -12,28 +12,46 @@
 #include <getopt.h>
 
 #define SHM_KEY 18181
+
 typedef struct{
     int seconds;
     int nanoseconds;
 }Clock;
 
-struct PCB {
+
+//increment the system clock
+void incrementClock(Clock *clock, int increment) {
+
+clock->nanoseconds += increment;
+    if (clock->nanoseconds >= 1000000000) {
+        clock->seconds++;
+        clock->nanoseconds -= 1000000000;
+    }
+}
+
+typedef struct {
     int occupied; // either true or false
-    pid_t pid; // process id of this child
+    int pid; // process id of this child
     int startSeconds; // time when it was forked
     int startNano; // time when it was forked
-};
+}PCB;
 
-struct PCB processTable[20];
+PCB process_Table[20];
+
+int num_processes_launched = 0;
+int num_processes_terminated = 0;
+
+
+
 
 // Function to add a new process to the process table
 void addToProcessTable(pid_t pid, int startSeconds, int startNano) {
     for (int i = 0; i < 20; i++) {
-        if (!processTable[i].occupied) {
-            processTable[i].occupied = 1;
-            processTable[i].pid = pid;
-            processTable[i].startSeconds = startSeconds;
-            processTable[i].startNano = startNano;
+        if (!process_Table[i].occupied) {
+            process_Table[i].occupied = 1;
+            process_Table[i].pid = pid;
+            process_Table[i].startSeconds = startSeconds;
+            process_Table[i].startNano = startNano;
             break;
         }
     }
@@ -42,11 +60,11 @@ void addToProcessTable(pid_t pid, int startSeconds, int startNano) {
 // Function to update the process table when a process terminates
 void updateProcessTable(pid_t pid) {
     for (int i = 0; i < 20; i++) {
-        if (processTable[i].occupied && processTable[i].pid == pid) {
-            processTable[i].occupied = 0;
-            processTable[i].pid = 0;
-            processTable[i].startSeconds = 0;
-            processTable[i].startNano = 0;
+        if (process_Table[i].occupied && process_Table[i].pid == pid) {
+            process_Table[i].occupied = 0;
+            process_Table[i].pid = 0;
+            process_Table[i].startSeconds = 0;
+            process_Table[i].startNano = 0;
             break;
         }
     }
@@ -58,34 +76,63 @@ void printProcessTable() {
     printf("Process Table:\n");
     printf("Entry\tOccupied\tPID\tStartS\tStartN\n");
     for (int i = 0; i < 20; i++) {
-        printf("%d\t%d\t\t%d\t%d\t%d\n", i, processTable[i].occupied,
-               processTable[i].pid, processTable[i].startSeconds, processTable[i].startNano);
+        printf("%d\t%d\t\t%d\t%d\t%d\n", i, process_Table[i].occupied,
+               process_Table[i].pid, process_Table[i].startSeconds, process_Table[i].startNano);
     }
     printf("\n");
 }
 
+void checkIfChildHasTerminated() {
+    int pid, status;
+    pid = waitpid(-1, &status, WNOHANG);
+    if (pid > 0) {
+        num_processes_terminated++;
+        for (int i = 0; i < 20; i++) {
+            if (process_Table[i].pid == pid) {
+                process_Table[i].occupied = 0;
+                break;
+            }
+        }
+    }
+}
 
 
-
+void updatePCBOfTerminatedChild(int pid) {
+    // Update process table entry for terminated child
+    int i;
+    for (i = 0; i < 20; i++) {
+        if (process_Table[i].occupied && process_Table[i].pid == pid) {
+            process_Table[i].occupied = 0;
+            process_Table[i].pid = 0;
+            process_Table[i].startSeconds = 0;
+            process_Table[i].startNano = 0;
+            break;
+        }
+    }
+    
+}
 
 int main(int argc, char* argv[]){
   
     int n=1, s = 0, t=7;
     int children = 0;
-    
+    int option =0;
+    int status;
+    int stillChildrenToLaunch = 1;
+    int childHasTerminated = 0;
     
     int increment = 1000000; // increment clock by 1 millisecond
     
 
     // Initialize process table
     for (int i = 0; i < 20; i++) {
-        processTable[i].occupied = 0;
-        processTable[i].pid = 0;
-        processTable[i].startSeconds = 0;
-        processTable[i].startNano = 0;
+        process_Table[i].occupied = 0;
+        process_Table[i].pid = 0;
+        process_Table[i].startSeconds = 0;
+        process_Table[i].startNano = 0;
     }
 
-    int option=0;
+   
 
     /* get opt() use to pass the command line options
      loops runs untill getopt retutns -1
@@ -149,11 +196,37 @@ int main(int argc, char* argv[]){
      clock->nanoseconds = rand()% (1000000000) + 1;
      clock->seconds = rand()%(t-1) + 1;
     
+    // Initialize process table
+        for (int i = 0; i < 20; i++) {
+            process_Table[i].occupied = 0;
+        }
+    
+    while(stillChildrenToLaunch){
+        incrementClock(clock, increment);
+        static int counter = 0;
+                if (counter == 5) {
+                    counter = 0;
+                    printf("OSS PID:%d SysClockS: %ld SysclockNano: %ld\n", getpid(), time(NULL), 0L);
+                    printProcessTable();
+                } else {
+                    counter++;
+                }
+        checkIfChildHasTerminated();
+        
+        if(childHasTerminated){
+            // Update PCB of terminated child
+            updatePCBOfTerminatedChild( pid);
+                
+    
    
     while (children < n) {
         if (children >= s) {
             wait(NULL);
         }
+        for(int i=0; i<20; i++){
+            if (!process_Table[i].occupied) {
+                
+            
     // fork a child process
     pid_t pid = fork();
     
@@ -177,15 +250,24 @@ int main(int argc, char* argv[]){
         // Parent processand
         wait(NULL);
         printf("Parent process: simulated system clock after child process: seconds = %d, nanoseconds = %d\n", clock->seconds, clock->nanoseconds);
+        
+        
         addToProcessTable(pid, clock->seconds, clock->nanoseconds);
+        process_Table[i].occupied = 1;
+        process_Table[i].pid = pid;
+        process_Table[i].startSeconds = time(NULL);
+        process_Table[i].startNano = 0;
+        num_processes_launched++;
+        break;
         }
     
-    }
+            }else{
+                stillChildrenToLaunch = 0;
+            }
     
-//    pid_t pid = waitpid(-1, &status, WNOHANG);
-//    if (pid > 0) {
-//        updateProcessTable(pid);
-//    }
+   
+    
+        }
     
     //Detach shared memory segment from process address space
     if (shmdt(clock) == -1) {
@@ -198,12 +280,8 @@ int main(int argc, char* argv[]){
             perror("shmctl");
             exit(EXIT_FAILURE);
         }
-    
-    
-    
-    
-    
-    
-    
+        }
+        }
+    }
     return 0;
 }

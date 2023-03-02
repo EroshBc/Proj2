@@ -1,0 +1,17 @@
+**** To compile *****
+make
+
+*** Execution  ***
+./oss -n 5 -s 3 -t 7
+
+To get more information
+./oss -h
+
+
+List of files included
+oss.c
+worker.c
+README
+Makefile
+
+*** when run oss file its called worker and stay there for long time...
